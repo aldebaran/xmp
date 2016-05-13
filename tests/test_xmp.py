@@ -7,8 +7,8 @@ import unittest
 import shutil
 # libXMP
 import libxmp.consts
-# Qidata
-from qidata.xmp import (ALDEBARAN_NS, XMPFile, XMPMetadata,
+# Xmp
+from xmp.xmp import (ALDEBARAN_NS, XMPFile, XMPMetadata,
                         XMPElement,   XMPVirtualElement,
                         XMPNamespace, XMPStructure, XMPArray, XMPSet, XMPValue)
 from . import fixtures

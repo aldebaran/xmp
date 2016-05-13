@@ -1,2 +1,2 @@
-**qidata** is a data management CLI.
+XMP is a tool to read/write metadata in files.
 
