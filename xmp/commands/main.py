@@ -14,11 +14,10 @@ from .. import version
 
 DESCRIPTION = "Manipulate XMP metadata"
 
-def parser():
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    subparsers = parser.add_subparsers()
+def make_command_parser(parent_parser=argparse.ArgumentParser(description=DESCRIPTION)):
+    subparsers = parent_parser.add_subparsers()
 
-    parser.add_argument("-v", "--version", action=version.VersionAction, nargs=0,
+    parent_parser.add_argument("-v", "--version", action=version.VersionAction, nargs=0,
                         help="print xmp release version number")
 
     # ────────────────
@@ -58,6 +57,6 @@ def parser():
     if has_argcomplete: file_argument.completer = argcomplete.completers.FilesCompleter()
     delete_parser.set_defaults(func=XMPCommand.delete)
 
-    return parser
+    return parent_parser
 
-main_parser = parser()
+main_parser = make_command_parser()
