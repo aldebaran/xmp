@@ -1000,10 +1000,12 @@ class XMPStructure(XMPElement, ContainerMixin, collections.Sequence, collections
 			key = self.__indexToKey(key_or_index)
 		elif not isinstance(key_or_index, basestring):
 			raise TypeError("Wrong index type "+str(type(key_or_index)))
+		else:
+			key = key_or_index
 
 		element_to_delete = self.__getitem__(key)
 		element_to_delete.__delete__()
-		return self._children.pop(key)
+		return self._children.pop(element_to_delete.name)
 
 	def __len__(self):
 		return len(self._children)

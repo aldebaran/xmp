@@ -288,6 +288,12 @@ class XMPStructureTests(XMPTestCase):
 		                                                           "aldebaran:y": "4",
 		                                                           "aldebaran:z": "5" } })
 
+	def test_delitem(self):
+		metadata = XMPMetadata()
+		metadata[ALDEBARAN_NS]["element"] = {"a": 1}
+		self.assertIsInstance(metadata[ALDEBARAN_NS].element, XMPStructure)
+		del metadata[ALDEBARAN_NS]["element"]
+		self.assertIsNone(metadata[ALDEBARAN_NS].get("element"))
 
 class XMPArrayTests(XMPTestCase):
 	def test_setattr_top_level_array(self):
