@@ -87,10 +87,6 @@ class XMP(XMPTestCase):
 		for ns_uid in self.EXPECTED_NS_UIDS:
 			self.assertIsInstance(self.example_xmp[ns_uid], XMPNamespace)
 
-	def test_create_namespace(self):
-		empty_xmp = XMPMetadata()
-		self.assertEqual(len(empty_xmp.namespaces), 0)
-
 class XMPNamespaceTests(XMPTestCase):
 	def setUp(self):
 		super(XMPNamespaceTests, self).setUp()
