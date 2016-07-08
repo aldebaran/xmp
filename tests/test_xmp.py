@@ -425,13 +425,8 @@ class XMPNamespaceTests(XMPTestCase):
 
 		metadata = XMPMetadata()
 		test_metadata = metadata[TEST_NS_2]
-		try:
+		with self.assertRaises(NameError):
 			test_metadata["test_key"]=0
-			assert(False)
-		except NameError, e:
-			pass
-		except Exception, e:
-			assert(False)
 
 		registerNamespace(TEST_NS_2, "test2")
 		assert(test_metadata.prefix == PREFIX_2)
