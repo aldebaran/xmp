@@ -464,3 +464,43 @@ class ComplexTests(XMPTestCase):
 		test_metadata = metadata[TEST_NS]
 
 		test_metadata.root_value = 12
+
+class Metadata(unittest.TestCase):
+	def setUp(self):
+		self.xmp_file = XMPFile(fixtures.sandboxed(fixtures.JPG_PHOTO))
+		self.xmp_file.open()
+		self.xmp_metadata = self.xmp_file.metadata[TEST_NS]
+
+	def tearDown(self):
+		self.xmp_file.close()
+
+	def test_virtual_element(self):
+		self.xmp_metadata.inexistent_attribute
+
+	def test_nested_virtual_element(self):
+		self.xmp_metadata.inexistent_attribute.nested_inexistent_attribute
+
+	def test_virtual_element_descriptor_get(self):
+		self.assertIsInstance(self.xmp_metadata.inexistent_attribute, XMPVirtualElement)
+		self.assertIsInstance(self.xmp_metadata.__dict__, dict)
+
+	def test_virtual_element_descriptor_set_readonly(self):
+		self.xmp_metadata.inexistent_attribute = 12
+		import warnings
+		with warnings.catch_warnings(record=True) as w:
+			warnings.simplefilter("always")
+			self.xmp_file.close()
+			self.assertEqual(len(w), 1)
+			self.assertEqual(w[-1].category, RuntimeWarning)
+
+		self.xmp_file.open()
+
+	def test_virtual_element_descriptor_set(self):
+		with XMPFile(fixtures.sandboxed(fixtures.JPG_PHOTO), rw = True) as xmpitem:
+			xmpitem.metadata[TEST_NS].inexistent_attribute = 12
+			self.assertIsInstance(xmpitem.metadata[TEST_NS].inexistent_attribute, XMPValue)
+			self.assertEqual(xmpitem.metadata[TEST_NS].inexistent_attribute.value, "12")
+
+	def test_virtual_element_descriptor_delete(self):
+		with self.assertRaises(TypeError):
+			del self.xmp_metadata.inexistent_attribute
