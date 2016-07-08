@@ -54,7 +54,8 @@
     u'1'
 
     ..note:: If your namespace is registered (see `Creating a namespace`), you can directly query the parameter
-    without the prefix (see `Creating a namespace` for details about what a prefix is).
+    without the prefix (see `Creating a namespace` for details about what a prefix is). When opening a file, its
+    namespaces are automatically registered upon reading.
 
     :Example:
 
@@ -219,6 +220,8 @@
     To register a namespace, you need to use the `registerNamespace` function. You can then set values
     using both qualified and unqualified names. However, you must use the proper prefix if you use a
     qualified name.
+
+    :Example:
 
     >>> from xmp.xmp import registerNamespace
     >>> registerNamespace("http://test.com/xmp/1", "test")
