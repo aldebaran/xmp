@@ -419,6 +419,27 @@ class XMPNamespaceTests(XMPTestCase):
 		self.assertEqual(len(test_metadata.b), 2)
 		self.assertListEqual(test_metadata.b.value, ["1","2"])
 
+	def test_namespace_unregistered(self):
+		TEST_NS_2 = u"http://test.com/xmp/test/2"
+		PREFIX_2 = "test2"
+
+		metadata = XMPMetadata()
+		test_metadata = metadata[TEST_NS_2]
+		try:
+			test_metadata["test_key"]=0
+			assert(False)
+		except NameError, e:
+			pass
+		except Exception, e:
+			assert(False)
+
+		registerNamespace(TEST_NS_2, "test2")
+		assert(test_metadata.prefix == PREFIX_2)
+		try:
+			test_metadata["test_key"]=0
+		except Exception, e:
+			assert(False)
+			pass
 
 class XMPVirtualElementTests(XMPTestCase):
 	def setUp(self):
