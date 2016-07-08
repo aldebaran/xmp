@@ -76,7 +76,7 @@ def registerNamespace(namespace, prefix):
 		# This prefix is not used yet, that's cool
 		pass
 
-	return libxmp.exempi.register_namespace(namespace, prefix)
+	return libxmp.exempi.register_namespace(namespace, prefix)[:-1]
 
 class XMPFile(object):
 	"""

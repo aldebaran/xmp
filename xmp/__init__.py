@@ -225,7 +225,7 @@
 
     >>> from xmp.xmp import registerNamespace
     >>> registerNamespace("http://test.com/xmp/1", "test")
-    u'test:'
+    u'test'
     >>> ns.prefix
     u'test'
     >>> ns["test:myField"]=0
@@ -260,6 +260,14 @@
     a prefix for a namespace, as it should always be the same across different files (otherwise you may have
     trouble when successively opening different files), and as changing a prefix afterwards without changing the
     namespace is not such an easy operation.
+
+    :Example:
+
+    >>> from xmp.xmp import registerNamespace
+    >>> registerNamespace("http://test.com/xmp/1", "foo")
+    u'foo'
+    >>> registerNamespace("http://test.com/xmp/1", "bar") # this will not change the prefix
+    u'foo'
 
 """
 import os, glob
