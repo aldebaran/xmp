@@ -138,7 +138,9 @@ class XMPFile(object):
 		if self.is_open:
 			warnings.warn("File {} is already open".format(self.file_path), RuntimeWarning)
 		if libxmp.exempi.files_check_file_format(self.file_path) == libxmp.consts.XMP_FT_UNKNOWN:
-			raise RuntimeError("Unknown XMP file type")
+			extension = os.path.splitext(self.file_path)[1]
+			if extension != ".xmp":
+				raise RuntimeError("XMP library can't determine the file type")
 
 		self.libxmp_file = libxmp.XMPFiles(file_path = self.file_path,
 		                                open_onlyxmp = True,
