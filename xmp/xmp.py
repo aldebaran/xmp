@@ -11,10 +11,6 @@ import weakref
 # XMP
 import libxmp
 
-ALDEBARAN_NS_V1=u"http://aldebaran.com/xmp/1"
-ALDEBARAN_NS = ALDEBARAN_NS_V1
-SUGGESTED_ALDEBARAN_NS_PREFIX=u"aldebaran"
-libxmp.exempi.register_namespace(ALDEBARAN_NS, SUGGESTED_ALDEBARAN_NS_PREFIX)
 
 # ────────────────────────────────
 # libxmp insertion monkey-patching
@@ -46,10 +42,41 @@ TREE_LAST_INDENT = u"└" + TREE_INDENT
 # General XMP API
 
 def isQualified(name):
+	"""
+	Check if a property name is qualified
+	"""
 	return name.find(':') != -1
 
 def qualify(name, prefix):
+	"""
+	Qualify a property name with the given prefix
+	"""
 	return "{prefix}:{name}".format(name=name, prefix=prefix)
+
+def registerNamespace(namespace, prefix):
+	"""
+	Register a namespace in libxmp.exempi
+
+	@namespace : the namespace to register
+	@prefix    : the prefix to use with this namespace
+	"""
+	try:
+		registered_prefix = libxmp.exempi.namespace_prefix(namespace)
+		# The namespace already exists, return actual prefix.
+		return registered_prefix
+	except libxmp.XMPError:
+		# This namespace does not exist, that's cool
+		pass
+
+	try:
+		libxmp.exempi.prefix_namespace_uri(prefix)
+		# Prefix is already used, but not by us.
+		raise NameError("Prefix is already used")
+	except libxmp.XMPError:
+		# This prefix is not used yet, that's cool
+		pass
+
+	return libxmp.exempi.register_namespace(namespace, prefix)[:-1]
 
 class XMPFile(object):
 	"""
@@ -1092,8 +1119,8 @@ class XMPStructure(XMPElement, ContainerMixin, collections.Sequence, collections
 class XMPNamespace(XMPStructure):
 	""" Convenience wrapper around libXMP to manipulate a namespace. """
 
-	# ──────────
-	# Properties
+	# ───────────
+	# Constructor
 
 	def __init__(self, xmp, uid):
 		XMPStructure.__init__(self, None, "", [])
@@ -1121,7 +1148,10 @@ class XMPNamespace(XMPStructure):
 
 	@property
 	def prefix(self):
-		return self.libxmp_metadata.get_prefix_for_namespace(self.uid)[:-1]
+		try:
+			return self.libxmp_metadata.get_prefix_for_namespace(self.uid)[:-1]
+		except libxmp.XMPError, e:
+			return None
 
 	@property
 	def exists(self):
@@ -1155,7 +1185,8 @@ class XMPNamespace(XMPStructure):
 
 	def qualify(self, name):
 		if isQualified(name): return name
-		return qualify(name, self.prefix)
+		if self.prefix is not None: return qualify(name, self.prefix)
+		raise NameError("%s is unqualified and %s does not have a default prefix"%(name, self.uid))
 
 	# ──────────────
 	# Textualization

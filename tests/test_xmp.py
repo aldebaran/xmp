@@ -8,10 +8,15 @@ import shutil
 # libXMP
 import libxmp.consts
 # Xmp
-from xmp.xmp import (ALDEBARAN_NS, XMPFile, XMPMetadata,
+from xmp.xmp import (XMPFile, XMPMetadata,
                         XMPElement,   XMPVirtualElement,
                         XMPNamespace, XMPStructure, XMPArray, XMPSet, XMPValue)
+from xmp.xmp import registerNamespace
 from . import fixtures
+
+TEST_NS = u"http://test.com/xmp/test/1"
+PREFIX = "test"
+registerNamespace(TEST_NS, PREFIX)
 
 def sha1(file_path):
 	import hashlib
@@ -37,9 +42,9 @@ class XMPFileTests(unittest.TestCase):
 		with warnings.catch_warnings(record=True) as w:
 			warnings.simplefilter("always")
 			with XMPFile(self.jpg_path) as f:
-				ald_prefix = f.libxmp_metadata.get_prefix_for_namespace(ALDEBARAN_NS)
-				f.libxmp_metadata.set_property(schema_ns=ALDEBARAN_NS,
-				                               prop_name=ald_prefix+"Property",
+				tst_prefix = f.libxmp_metadata.get_prefix_for_namespace(TEST_NS)
+				f.libxmp_metadata.set_property(schema_ns=TEST_NS,
+				                               prop_name=tst_prefix+"Property",
 				                               prop_value="Value")
 			self.assertEqual(len(w), 1)
 			self.assertEqual(w[-1].category, RuntimeWarning)
@@ -47,9 +52,9 @@ class XMPFileTests(unittest.TestCase):
 	def test_modify_readwrite(self):
 		original_sha1 = sha1(self.jpg_path)
 		with XMPFile(self.jpg_path, rw=True) as f:
-			ald_prefix = f.libxmp_metadata.get_prefix_for_namespace(ALDEBARAN_NS)
-			f.libxmp_metadata.set_property(schema_ns=ALDEBARAN_NS,
-			                               prop_name=ald_prefix+"Property",
+			tst_prefix = f.libxmp_metadata.get_prefix_for_namespace(TEST_NS)
+			f.libxmp_metadata.set_property(schema_ns=TEST_NS,
+			                               prop_name=tst_prefix+"Property",
 			                               prop_value="Value")
 		modified_sha1 = sha1(self.jpg_path)
 		self.assertNotEqual(original_sha1, modified_sha1)
@@ -81,10 +86,6 @@ class XMP(XMPTestCase):
 	def test_getitem(self):
 		for ns_uid in self.EXPECTED_NS_UIDS:
 			self.assertIsInstance(self.example_xmp[ns_uid], XMPNamespace)
-
-	def test_create_namespace(self):
-		empty_xmp = XMPMetadata()
-		self.assertEqual(len(empty_xmp.namespaces), 0)
 
 class XMPNamespaceTests(XMPTestCase):
 	def setUp(self):
@@ -231,44 +232,44 @@ class XMPStructureTests(XMPTestCase):
 	def test_setattr_inexistent(self):
 		sandboxed_photo = fixtures.sandboxed(fixtures.JPG_PHOTO)
 		with XMPFile(sandboxed_photo, rw=True) as xmp_file:
-			xmp_file.metadata[ALDEBARAN_NS].inexistent_element = 12
-			self.assertIsInstance(xmp_file.metadata[ALDEBARAN_NS].inexistent_element,
+			xmp_file.metadata[TEST_NS].inexistent_element = 12
+			self.assertIsInstance(xmp_file.metadata[TEST_NS].inexistent_element,
 			                      XMPValue)
-			self.assertEqual(xmp_file.metadata[ALDEBARAN_NS].inexistent_element.value, "12")
+			self.assertEqual(xmp_file.metadata[TEST_NS].inexistent_element.value, "12")
 		# Close and write file then reopen it
 		with XMPFile(sandboxed_photo) as xmp_file:
-			self.assertIsInstance(xmp_file.metadata[ALDEBARAN_NS].inexistent_element,
+			self.assertIsInstance(xmp_file.metadata[TEST_NS].inexistent_element,
 			                      XMPValue)
-			self.assertEqual(xmp_file.metadata[ALDEBARAN_NS].inexistent_element.value, "12")
+			self.assertEqual(xmp_file.metadata[TEST_NS].inexistent_element.value, "12")
 
 	def test_setattr_nested_inexistent(self):
 		metadata = XMPMetadata()
-		metadata[ALDEBARAN_NS].A.B = 12
+		metadata[TEST_NS].A.B = 12
 
-		self.assertIsInstance(metadata[ALDEBARAN_NS].A,   XMPStructure)
-		self.assertIsInstance(metadata[ALDEBARAN_NS].A.B, XMPValue)
-		self.assertEqual(metadata[ALDEBARAN_NS].A.B.value, "12")
+		self.assertIsInstance(metadata[TEST_NS].A,   XMPStructure)
+		self.assertIsInstance(metadata[TEST_NS].A.B, XMPValue)
+		self.assertEqual(metadata[TEST_NS].A.B.value, "12")
 
 	def test_setattr_array_in_struct(self):
 		metadata = XMPMetadata()
-		metadata[ALDEBARAN_NS].container.nested_array = [3.14, u"π"]
+		metadata[TEST_NS].container.nested_array = [3.14, u"π"]
 
-		tested_array = metadata[ALDEBARAN_NS].container.nested_array
-		self.assertIsInstance(metadata[ALDEBARAN_NS].container, XMPStructure)
-		self.assertEqual(len(metadata[ALDEBARAN_NS].container), 1)
+		tested_array = metadata[TEST_NS].container.nested_array
+		self.assertIsInstance(metadata[TEST_NS].container, XMPStructure)
+		self.assertEqual(len(metadata[TEST_NS].container), 1)
 		self.assertIsInstance(tested_array, XMPArray)
 		self.assertEqual(len(tested_array), 2)
 		self.assertEqual(tested_array.value, ["3.14", u"π"])
 
 	def test_setattr_nested_struct_from_dict(self):
 		metadata = XMPMetadata()
-		metadata[ALDEBARAN_NS].test_struct = { "a": 1,
+		metadata[TEST_NS].test_struct = { "a": 1,
 		                                       "b": 2,
 		                                       "c": { "x": 3,
 		                                              "y": 4,
 		                                              "z": 5 } }
 
-		test_struct = metadata[ALDEBARAN_NS].test_struct
+		test_struct = metadata[TEST_NS].test_struct
 
 		self.assertIsInstance(test_struct, XMPStructure)
 		self.assertIsInstance(test_struct.a, XMPValue)
@@ -282,64 +283,64 @@ class XMPStructureTests(XMPTestCase):
 		self.assertEqual(test_struct.b.value, "2")
 		self.assertEqual(test_struct.c.x.value, "3")
 		self.assertEqual(test_struct.c.y.value, "4")
-		self.assertDictEqual(test_struct.value, { "aldebaran:a": "1",
-		                                          "aldebaran:b": "2",
-		                                          "aldebaran:c": { "aldebaran:x": "3",
-		                                                           "aldebaran:y": "4",
-		                                                           "aldebaran:z": "5" } })
+		self.assertDictEqual(test_struct.value, { "test:a": "1",
+		                                          "test:b": "2",
+		                                          "test:c": { "test:x": "3",
+		                                                      "test:y": "4",
+		                                                      "test:z": "5" } })
 
 	def test_delitem(self):
 		metadata = XMPMetadata()
-		metadata[ALDEBARAN_NS]["element"] = {"a": 1}
-		self.assertIsInstance(metadata[ALDEBARAN_NS].element, XMPStructure)
-		del metadata[ALDEBARAN_NS]["element"]
-		self.assertIsNone(metadata[ALDEBARAN_NS].get("element"))
+		metadata[TEST_NS]["element"] = {"a": 1}
+		self.assertIsInstance(metadata[TEST_NS].element, XMPStructure)
+		del metadata[TEST_NS]["element"]
+		self.assertIsNone(metadata[TEST_NS].get("element"))
 
 class XMPArrayTests(XMPTestCase):
 	def test_setattr_top_level_array(self):
 		metadata = XMPMetadata()
-		metadata[ALDEBARAN_NS].top_level_array = [1,2,3,"a","b","c"]
+		metadata[TEST_NS].top_level_array = [1,2,3,"a","b","c"]
 
-		self.assertIsInstance(metadata[ALDEBARAN_NS].top_level_array, XMPArray)
-		self.assertIsInstance(metadata[ALDEBARAN_NS].top_level_array.value, list)
-		self.assertListEqual(metadata[ALDEBARAN_NS].top_level_array.value,
+		self.assertIsInstance(metadata[TEST_NS].top_level_array, XMPArray)
+		self.assertIsInstance(metadata[TEST_NS].top_level_array.value, list)
+		self.assertListEqual(metadata[TEST_NS].top_level_array.value,
 		                     ["1","2","3","a","b","c"])
 
 	def test_array_expand(self):
 		metadata = XMPMetadata()
-		metadata[ALDEBARAN_NS].top_level_array = [1,2]
+		metadata[TEST_NS].top_level_array = [1,2]
 
-		self.assertEqual(len(metadata[ALDEBARAN_NS].top_level_array), 2)
-		self.assertListEqual(metadata[ALDEBARAN_NS].top_level_array.value, ["1","2"])
+		self.assertEqual(len(metadata[TEST_NS].top_level_array), 2)
+		self.assertListEqual(metadata[TEST_NS].top_level_array.value, ["1","2"])
 
-		metadata[ALDEBARAN_NS].top_level_array = [3,4,5,6]
-		self.assertEqual(len(metadata[ALDEBARAN_NS].top_level_array), 4)
-		self.assertListEqual(metadata[ALDEBARAN_NS].top_level_array.value, ["3","4","5","6"])
+		metadata[TEST_NS].top_level_array = [3,4,5,6]
+		self.assertEqual(len(metadata[TEST_NS].top_level_array), 4)
+		self.assertListEqual(metadata[TEST_NS].top_level_array.value, ["3","4","5","6"])
 
 	def test_array_shrink(self):
 		metadata = XMPMetadata()
-		metadata[ALDEBARAN_NS].top_level_array = [3,4,5,6]
+		metadata[TEST_NS].top_level_array = [3,4,5,6]
 
-		self.assertEqual(len(metadata[ALDEBARAN_NS].top_level_array), 4)
-		self.assertListEqual(metadata[ALDEBARAN_NS].top_level_array.value, ["3","4","5","6"])
+		self.assertEqual(len(metadata[TEST_NS].top_level_array), 4)
+		self.assertListEqual(metadata[TEST_NS].top_level_array.value, ["3","4","5","6"])
 
-		metadata[ALDEBARAN_NS].top_level_array = [1,2]
-		self.assertEqual(len(metadata[ALDEBARAN_NS].top_level_array), 2)
-		self.assertListEqual(metadata[ALDEBARAN_NS].top_level_array.value, ["1","2"])
+		metadata[TEST_NS].top_level_array = [1,2]
+		self.assertEqual(len(metadata[TEST_NS].top_level_array), 2)
+		self.assertListEqual(metadata[TEST_NS].top_level_array.value, ["1","2"])
 
 	def test_array_insert(self):
 		metadata = XMPMetadata()
-		metadata[ALDEBARAN_NS].test_array = [0,2,3]
+		metadata[TEST_NS].test_array = [0,2,3]
 
-		self.assertListEqual(metadata[ALDEBARAN_NS].test_array.value, ["0","2","3"])
-		metadata[ALDEBARAN_NS].test_array.insert(1, 1)
-		self.assertListEqual(metadata[ALDEBARAN_NS].test_array.value, ["0","1","2","3"])
+		self.assertListEqual(metadata[TEST_NS].test_array.value, ["0","2","3"])
+		metadata[TEST_NS].test_array.insert(1, 1)
+		self.assertListEqual(metadata[TEST_NS].test_array.value, ["0","1","2","3"])
 
 	def test_setattr_array_in_array(self):
 		metadata = XMPMetadata()
-		metadata[ALDEBARAN_NS].top_level_array = [1,[2,3,4],5]
+		metadata[TEST_NS].top_level_array = [1,[2,3,4],5]
 
-		created_array = metadata[ALDEBARAN_NS].top_level_array
+		created_array = metadata[TEST_NS].top_level_array
 		self.assertIsInstance(created_array, XMPArray)
 		self.assertEqual(len(created_array), 3)
 		self.assertIsInstance(created_array.value, list)
@@ -351,9 +352,9 @@ class XMPArrayTests(XMPTestCase):
 
 	def test_setattr_struct_in_array(self):
 		metadata = XMPMetadata()
-		metadata[ALDEBARAN_NS].root_array[2].nested_structure = 12
+		metadata[TEST_NS].root_array[2].nested_structure = 12
 
-		root_array = metadata[ALDEBARAN_NS].root_array
+		root_array = metadata[TEST_NS].root_array
 
 		self.assertIsInstance(root_array, XMPArray)
 		self.assertEqual(len(root_array), 3)
@@ -363,60 +364,77 @@ class XMPArrayTests(XMPTestCase):
 		self.assertIsNone(root_array[1].value)
 		self.assertIsInstance(root_array[2], XMPStructure)
 		self.assertEqual(len(root_array[2]), 1)
-		self.assertEqual(root_array[2].value, {"aldebaran:nested_structure": "12"})
+		self.assertEqual(root_array[2].value, {"test:nested_structure": "12"})
 		self.assertIsInstance(root_array[2].nested_structure, XMPValue)
 		self.assertEqual(root_array[2].nested_structure.value, "12")
 
 	def test_array_delitem(self):
 		metadata = XMPMetadata()
-		metadata[ALDEBARAN_NS].test_array = range(12)
-		self.assertListEqual(metadata[ALDEBARAN_NS].test_array.value,
+		metadata[TEST_NS].test_array = range(12)
+		self.assertListEqual(metadata[TEST_NS].test_array.value,
 		                     [str(x) for x in range(12)])
-		del metadata[ALDEBARAN_NS].test_array[6:]
-		self.assertListEqual(metadata[ALDEBARAN_NS].test_array.value,
+		del metadata[TEST_NS].test_array[6:]
+		self.assertListEqual(metadata[TEST_NS].test_array.value,
 		                     [str(x) for x in range(6)])
-		del metadata[ALDEBARAN_NS].test_array[::2]
-		self.assertListEqual(metadata[ALDEBARAN_NS].test_array.value,
+		del metadata[TEST_NS].test_array[::2]
+		self.assertListEqual(metadata[TEST_NS].test_array.value,
 		                     [str(x) for x in range(6)[1::2]])
-		del metadata[ALDEBARAN_NS].test_array[:]
-		self.assertListEqual(metadata[ALDEBARAN_NS].test_array.value, [])
+		del metadata[TEST_NS].test_array[:]
+		self.assertListEqual(metadata[TEST_NS].test_array.value, [])
 
 class XMPSetTests(XMPTestCase):
 	def test_setattr_set(self):
 		metadata = XMPMetadata()
-		aldebaran_metadata = metadata[ALDEBARAN_NS]
-		aldebaran_metadata.root_set = {3, 1, 4}
+		test_metadata = metadata[TEST_NS]
+		test_metadata.root_set = {3, 1, 4}
 
-		self.assertIsInstance(aldebaran_metadata.root_set, XMPSet)
-		self.assertEqual(len(aldebaran_metadata.root_set), 3)
-		self.assertSetEqual(aldebaran_metadata.root_set.value, {"3", "1", "4"})
+		self.assertIsInstance(test_metadata.root_set, XMPSet)
+		self.assertEqual(len(test_metadata.root_set), 3)
+		self.assertSetEqual(test_metadata.root_set.value, {"3", "1", "4"})
 
 	def test_contains(self):
 		metadata = XMPMetadata()
-		aldebaran_metadata = metadata[ALDEBARAN_NS]
-		aldebaran_metadata.root_set = {3, 1, 4}
+		test_metadata = metadata[TEST_NS]
+		test_metadata.root_set = {3, 1, 4}
 
-		self.assertTrue(3 in aldebaran_metadata.root_set)
-		self.assertTrue(1 in aldebaran_metadata.root_set)
-		self.assertTrue(4 in aldebaran_metadata.root_set)
+		self.assertTrue(3 in test_metadata.root_set)
+		self.assertTrue(1 in test_metadata.root_set)
+		self.assertTrue(4 in test_metadata.root_set)
 
-		self.assertFalse(2 in aldebaran_metadata.root_set)
+		self.assertFalse(2 in test_metadata.root_set)
 		for i in range(5,20):
-			self.assertFalse(i in aldebaran_metadata.root_set)
+			self.assertFalse(i in test_metadata.root_set)
 
 class XMPNamespaceTests(XMPTestCase):
 	def test_update_namespace(self):
 		metadata = XMPMetadata()
-		aldebaran_metadata = metadata[ALDEBARAN_NS]
-		aldebaran_metadata.update({"a": 12,
+		test_metadata = metadata[TEST_NS]
+		test_metadata.update({"a": 12,
 		                           "b": [1,2]})
 
-		self.assertEqual(len(aldebaran_metadata), 2)
-		self.assertIsInstance(aldebaran_metadata.a, XMPValue)
-		self.assertEqual(aldebaran_metadata.a.value, "12")
-		self.assertIsInstance(aldebaran_metadata.b, XMPArray)
-		self.assertEqual(len(aldebaran_metadata.b), 2)
-		self.assertListEqual(aldebaran_metadata.b.value, ["1","2"])
+		self.assertEqual(len(test_metadata), 2)
+		self.assertIsInstance(test_metadata.a, XMPValue)
+		self.assertEqual(test_metadata.a.value, "12")
+		self.assertIsInstance(test_metadata.b, XMPArray)
+		self.assertEqual(len(test_metadata.b), 2)
+		self.assertListEqual(test_metadata.b.value, ["1","2"])
+
+	def test_namespace_unregistered(self):
+		TEST_NS_2 = u"http://test.com/xmp/test/2"
+		PREFIX_2 = "test2"
+
+		metadata = XMPMetadata()
+		test_metadata = metadata[TEST_NS_2]
+		with self.assertRaises(NameError):
+			test_metadata["test_key"]=0
+
+		registerNamespace(TEST_NS_2, "test2")
+		assert(test_metadata.prefix == PREFIX_2)
+		try:
+			test_metadata["test_key"]=0
+		except Exception, e:
+			assert(False)
+			pass
 
 class XMPVirtualElementTests(XMPTestCase):
 	def setUp(self):
@@ -438,6 +456,46 @@ class XMPVirtualElementTests(XMPTestCase):
 class ComplexTests(XMPTestCase):
 	def test_setattr_complex(self):
 		metadata = XMPMetadata()
-		aldebaran_metadata = metadata[ALDEBARAN_NS]
+		test_metadata = metadata[TEST_NS]
 
-		aldebaran_metadata.root_value = 12
+		test_metadata.root_value = 12
+
+class Metadata(unittest.TestCase):
+	def setUp(self):
+		self.xmp_file = XMPFile(fixtures.sandboxed(fixtures.JPG_PHOTO))
+		self.xmp_file.open()
+		self.xmp_metadata = self.xmp_file.metadata[TEST_NS]
+
+	def tearDown(self):
+		self.xmp_file.close()
+
+	def test_virtual_element(self):
+		self.xmp_metadata.inexistent_attribute
+
+	def test_nested_virtual_element(self):
+		self.xmp_metadata.inexistent_attribute.nested_inexistent_attribute
+
+	def test_virtual_element_descriptor_get(self):
+		self.assertIsInstance(self.xmp_metadata.inexistent_attribute, XMPVirtualElement)
+		self.assertIsInstance(self.xmp_metadata.__dict__, dict)
+
+	def test_virtual_element_descriptor_set_readonly(self):
+		self.xmp_metadata.inexistent_attribute = 12
+		import warnings
+		with warnings.catch_warnings(record=True) as w:
+			warnings.simplefilter("always")
+			self.xmp_file.close()
+			self.assertEqual(len(w), 1)
+			self.assertEqual(w[-1].category, RuntimeWarning)
+
+		self.xmp_file.open()
+
+	def test_virtual_element_descriptor_set(self):
+		with XMPFile(fixtures.sandboxed(fixtures.JPG_PHOTO), rw = True) as xmpitem:
+			xmpitem.metadata[TEST_NS].inexistent_attribute = 12
+			self.assertIsInstance(xmpitem.metadata[TEST_NS].inexistent_attribute, XMPValue)
+			self.assertEqual(xmpitem.metadata[TEST_NS].inexistent_attribute.value, "12")
+
+	def test_virtual_element_descriptor_delete(self):
+		with self.assertRaises(TypeError):
+			del self.xmp_metadata.inexistent_attribute
