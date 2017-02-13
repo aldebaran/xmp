@@ -9,9 +9,9 @@ import shutil
 import libxmp.consts
 # Xmp
 from xmp.xmp import (XMPFile, XMPMetadata,
-                        XMPElement,   XMPVirtualElement,
-                        XMPNamespace, XMPStructure, XMPArray, XMPSet, XMPValue)
-from xmp.xmp import registerNamespace
+                     XMPElement,   XMPVirtualElement,
+                     XMPNamespace, XMPStructure, XMPArray, XMPSet, XMPValue,
+                     registerNamespace)
 from . import fixtures
 
 TEST_NS = u"http://test.com/xmp/test/1"
@@ -264,10 +264,10 @@ class XMPStructureTests(XMPTestCase):
 	def test_setattr_nested_struct_from_dict(self):
 		metadata = XMPMetadata()
 		metadata[TEST_NS].test_struct = { "a": 1,
-		                                       "b": 2,
-		                                       "c": { "x": 3,
-		                                              "y": 4,
-		                                              "z": 5 } }
+		                                  "b": 2,
+		                                  "c": { "x": 3,
+		                                         "y": 4,
+		                                         "z": 5 } }
 
 		test_struct = metadata[TEST_NS].test_struct
 

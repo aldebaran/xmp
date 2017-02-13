@@ -115,21 +115,21 @@ class XMPFile(object):
 
 	@property
 	def rw(self):
-	    return self.__rw
+		return self.__rw
 
 	@property
 	def is_open(self):
-	    return self.libxmp_file      is not None \
-	       and self._libxmp_metadata is not None \
-	       and self.metadata         is not None
+		return (self.libxmp_file      is not None
+		    and self._libxmp_metadata is not None
+		    and self.metadata         is not None)
 
 	@property
 	def has_changed(self):
-	    return repr(self._libxmp_metadata) != self.__original_repr
+		return repr(self._libxmp_metadata) != self.__original_repr
 
 	@property
 	def read_only(self):
-	    return not self.rw
+		return not self.rw
 
 	# ───────────
 	# General API
@@ -163,7 +163,9 @@ class XMPFile(object):
 					else:
 						raise
 				except:
-					raise RuntimeError("Can't serialize XMP to file " + self.file_path)
+					message  = "Can't serialize XMP to file " + self.file_path
+					message += ""
+					raise RuntimeError(message)
 
 		finally:
 			self.libxmp_file.close_file()
@@ -357,8 +359,10 @@ class TreePredicatesMixin:
 		elif TreePredicatesMixin.INDEX_REGEX.match(relative_address):
 			return self.address + relative_address
 		else:
-			return "{base_address}/{relative_address}".format(base_address = self.address,
-			                                              relative_address = relative_address)
+			return "{base_address}/{relative_address}".format(
+				base_address = self.address,
+				relative_address = relative_address
+			)
 
 	# ──────────
 	# Predicates
@@ -367,9 +371,9 @@ class TreePredicatesMixin:
 		return self.namespace_uid == other.namespace_uid
 
 	def isDescendantOf(self, other):
-		return self.address.startswith(other.address) \
-		   and self.inSameNamespace(other) \
-		   and self.address != other.address
+		return (self.address.startswith(other.address)
+		    and self.inSameNamespace(other)
+		    and self.address != other.address)
 
 	def isAncestorOf(self, other):
 		return other.isDescendantOf(self)
@@ -416,9 +420,9 @@ class TreePredicatesMixin:
 	# Equality operators
 
 	def __eq__(self, other):
-		return isinstance(other, self.__class__) \
-		   and self.namespace == other.namespace \
-		   and self.address   == other.address
+		return (isinstance(other, self.__class__)
+		    and self.namespace == other.namespace
+		    and self.address   == other.address)
 
 	def __neq__(self, other):
 		return not self.__eq__(other)
@@ -458,27 +462,27 @@ class LibXMPElement(object, TreePredicatesMixin):
 
 	@property
 	def is_container(self):
-	    return self.descriptor["VALUE_IS_STRUCT"] or self.descriptor["VALUE_IS_ARRAY"]
+		return self.descriptor["VALUE_IS_STRUCT"] or self.descriptor["VALUE_IS_ARRAY"]
 
 	@property
 	def is_value(self):
-	    return not self.is_container
+		return not self.is_container
 
 	@property
 	def is_namespace(self):
-	    return self.descriptor["IS_SCHEMA"]
+		return self.descriptor["IS_SCHEMA"]
 
 	@property
 	def is_struct(self):
-	    return self.descriptor["VALUE_IS_STRUCT"]
+		return self.descriptor["VALUE_IS_STRUCT"]
 
 	@property
 	def is_array(self):
-	    return self.descriptor["VALUE_IS_ARRAY"] and self.descriptor["ARRAY_IS_ORDERED"]
+		return self.descriptor["VALUE_IS_ARRAY"] and self.descriptor["ARRAY_IS_ORDERED"]
 
 	@property
 	def is_set(self):
-	    return self.descriptor["VALUE_IS_ARRAY"] and not self.descriptor["ARRAY_IS_ORDERED"]
+		return self.descriptor["VALUE_IS_ARRAY"] and not self.descriptor["ARRAY_IS_ORDERED"]
 
 	# ──────────────
 	# Textualization
