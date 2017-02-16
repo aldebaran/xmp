@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # Standard Library
+import collections
 import errno
 import os
 import unittest
@@ -12,7 +13,7 @@ from xmp.xmp import (XMPFile, XMPMetadata,
                      XMPElement,   XMPVirtualElement,
                      XMPNamespace, XMPStructure, XMPArray, XMPSet, XMPValue,
                      registerNamespace)
-from . import fixtures
+import fixtures
 
 TEST_NS = u"http://test.com/xmp/test/1"
 PREFIX = "test"
@@ -28,7 +29,12 @@ def sha1(file_path):
 
 class XMPFileTests(unittest.TestCase):
 	def setUp(self):
-		self.jpg_path = fixtures.sandboxed(fixtures.JPG_PHOTO)
+		self.jpg_path = fixtures.sandboxedData(fixtures.JPG_PHOTO)
+
+		fixtures.createSandbox()
+		self.xmp_extension_path = os.path.join(fixtures.SANDBOX_FOLDER, "test.xmp")
+		if os.path.exists(self.xmp_extension_path):
+			os.remove(self.xmp_extension_path)
 
 	def test_contextmanager_noop(self):
 		original_sha1 = sha1(self.jpg_path)
@@ -59,11 +65,30 @@ class XMPFileTests(unittest.TestCase):
 		modified_sha1 = sha1(self.jpg_path)
 		self.assertNotEqual(original_sha1, modified_sha1)
 
+	def test_xmp_file_open(self):
+		with XMPFile(fixtures.sandboxedData("foo.xmp")) as file:
+			namespaces = file.metadata.namespaces
+			self.assertIsInstance(namespaces, collections.Sequence)
+			self.assertEqual(len(namespaces), 1)
+
+			namespace = namespaces[0]
+			self.assertIsInstance(namespace, XMPNamespace)
+			self.assertEqual(namespace.uid, "http://test.com/xmp/test/1")
+			self.assertIsInstance(namespace.structure, XMPValue)
+			self.assertEqual(namespace.structure.value, "value")
+
+	def test_xmp_file_creation(self):
+		with XMPFile(self.xmp_extension_path, rw=True) as xmp_file:
+			xmp_file.metadata[TEST_NS].structure = "value"
+		self.assertTrue(os.path.exists(self.xmp_extension_path))
+		with XMPFile(self.xmp_extension_path) as xmp_file:
+			self.assertEqual(xmp_file.metadata[TEST_NS].structure.value, "value")
+
 class XMPTestCase(unittest.TestCase):
 	def setUp(self):
 		self.EXPECTED_NS_UIDS = fixtures.JPG_PHOTO_NS_UIDS
 
-		self.xmp_file = XMPFile(fixtures.sandboxed(fixtures.JPG_PHOTO))
+		self.xmp_file = XMPFile(fixtures.sandboxedData(fixtures.JPG_PHOTO))
 		self.xmp_file.__enter__()
 		self.example_xmp = self.xmp_file.metadata
 
@@ -86,6 +111,10 @@ class XMP(XMPTestCase):
 	def test_getitem(self):
 		for ns_uid in self.EXPECTED_NS_UIDS:
 			self.assertIsInstance(self.example_xmp[ns_uid], XMPNamespace)
+
+	def test_create_namespace(self):
+		empty_xmp = XMPMetadata()
+		self.assertEqual(len(empty_xmp.namespaces), 0)
 
 class XMPNamespaceTests(XMPTestCase):
 	def setUp(self):
@@ -219,7 +248,7 @@ class XMPStructureTests(XMPTestCase):
 		self.assertEqual(self.exif_ns.Flash.RedEyeMode.value, "False")
 
 	def test_setattr_existing(self):
-		jpg_filepath = fixtures.sandboxed(fixtures.JPG_PHOTO)
+		jpg_filepath = fixtures.sandboxedData(fixtures.JPG_PHOTO)
 
 		with XMPFile(jpg_filepath, rw=True) as xmp_file:
 			xmp_file.metadata[libxmp.consts.XMP_NS_EXIF].FNumber = "314/141"
@@ -230,7 +259,7 @@ class XMPStructureTests(XMPTestCase):
 			self.assertEqual(xmp_file.metadata[libxmp.consts.XMP_NS_EXIF].FNumber.value, "32/10")
 
 	def test_setattr_inexistent(self):
-		sandboxed_photo = fixtures.sandboxed(fixtures.JPG_PHOTO)
+		sandboxed_photo = fixtures.sandboxedData(fixtures.JPG_PHOTO)
 		with XMPFile(sandboxed_photo, rw=True) as xmp_file:
 			xmp_file.metadata[TEST_NS].inexistent_element = 12
 			self.assertIsInstance(xmp_file.metadata[TEST_NS].inexistent_element,
@@ -462,7 +491,7 @@ class ComplexTests(XMPTestCase):
 
 class Metadata(unittest.TestCase):
 	def setUp(self):
-		self.xmp_file = XMPFile(fixtures.sandboxed(fixtures.JPG_PHOTO))
+		self.xmp_file = XMPFile(fixtures.sandboxedData(fixtures.JPG_PHOTO))
 		self.xmp_file.open()
 		self.xmp_metadata = self.xmp_file.metadata[TEST_NS]
 
@@ -491,7 +520,7 @@ class Metadata(unittest.TestCase):
 		self.xmp_file.open()
 
 	def test_virtual_element_descriptor_set(self):
-		with XMPFile(fixtures.sandboxed(fixtures.JPG_PHOTO), rw = True) as xmpitem:
+		with XMPFile(fixtures.sandboxedData(fixtures.JPG_PHOTO), rw = True) as xmpitem:
 			xmpitem.metadata[TEST_NS].inexistent_attribute = 12
 			self.assertIsInstance(xmpitem.metadata[TEST_NS].inexistent_attribute, XMPValue)
 			self.assertEqual(xmpitem.metadata[TEST_NS].inexistent_attribute.value, "12")
@@ -499,3 +528,17 @@ class Metadata(unittest.TestCase):
 	def test_virtual_element_descriptor_delete(self):
 		with self.assertRaises(TypeError):
 			del self.xmp_metadata.inexistent_attribute
+
+class SidecarTests(unittest.TestCase):
+	def setUp(self):
+		self.sidecar_only_path = fixtures.sandboxedData("foobar.txt")
+		self.sidecar_path = self.sidecar_only_path + ".xmp"
+		if os.path.exists(self.sidecar_path):
+			os.remove(self.sidecar_path)
+
+	def test_sidecar_creation(self):
+		with XMPFile(self.sidecar_only_path, rw=True) as sidecar:
+			sidecar.metadata[TEST_NS].structure = "value"
+		self.assertTrue(os.path.exists(self.sidecar_only_path))
+		with XMPFile(self.sidecar_only_path, rw=True) as sidecar:
+			self.assertEqual(sidecar.metadata[TEST_NS].structure.value, "value")
