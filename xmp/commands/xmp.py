@@ -7,7 +7,6 @@ import os.path
 from ..xmp import XMPFile
 
 class XMPCommand:
-
 	@staticmethod
 	def show(args):
 		throwIfAbsent(args.file)
@@ -25,10 +24,12 @@ class XMPCommand:
 	@staticmethod
 	def set(args):
 		throwIfAbsent(args.file)
-		print "Setting property {ns}:{p} of file {f} to {v}".format(ns=args.namespace,
-		                                                             p=args.property,
-		                                                             v=args.value,
-		                                                             f=args.file)
+		print "Setting property {ns}:{p} of file {f} to {v}".format(
+			ns = args.namespace,
+			 p = args.property,
+			 v = args.value,
+			 f = args.file
+		)
 		input_file_path = args.file
 		with XMPFile(input_file_path) as xmp_file:
 			pass
@@ -37,10 +38,12 @@ class XMPCommand:
 	@staticmethod
 	def delete(args):
 		throwIfAbsent(args.file)
-		print "Deleting property {ns}:{p} of file {f}".format(ns=args.namespace,
-		                                                       p=args.property,
-		                                                       v=args.value,
-		                                                       f=args.file)
+		print "Deleting property {ns}:{p} of file {f}".format(
+			ns = args.namespace,
+			 p = args.property,
+			 v = args.value,
+			 f = args.file
+		)
 		input_file_path = args.file
 		with XMPFile(input_file_path) as xmp_file:
 			pass

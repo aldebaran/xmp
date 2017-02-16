@@ -33,18 +33,20 @@ JPG_PHOTO_NS_LEN = {
 # ─────────
 # Utilities
 
-def sandboxed(file_path):
-	"""
-	Makes a copy of the given file in /tmp and returns its path.
-	"""
-	source_path = os.path.join(DATA_FOLDER,    file_path)
-	tmp_path    = os.path.join(SANDBOX_FOLDER, file_path)
-
+def createSandbox():
 	try:
 		os.mkdir(SANDBOX_FOLDER)
 	except OSError as e:
 		if e.errno != errno.EEXIST:
 			raise
+
+def sandboxedData(file_path):
+	"""
+	Makes a copy of the given file in /tmp and returns its path.
+	"""
+	createSandbox()
+	source_path = os.path.join(DATA_FOLDER,    file_path)
+	tmp_path    = os.path.join(SANDBOX_FOLDER, file_path)
 	shutil.copyfile(source_path, tmp_path)
 
 	return tmp_path

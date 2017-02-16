@@ -23,4 +23,3 @@ setup(
         "python-xmp-toolkit >= 2.0.1",
     ]
 )
-

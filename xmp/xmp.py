@@ -80,20 +80,30 @@ def registerNamespace(namespace, prefix):
 
 class XMPFile(object):
 	"""
-	Handle to a file path to manipulate as a container to an XMP packet.
+	A file we want to store metadata about.
+
+	The metadata will be stored inside of the file if possible for the files's
+	format, otherwise it will be stored in a sidecar file. The side car file
+	will have the same name as the original file (extension included) with an
+	extra extension ".xmp".
 
 	Attributes:
-		rw: Whether the file is considered writable.
 		file_path: Path to the file to manipulate.
-		metadata: The metadata manipulator for the file.
+		rw:        Whether the metadata should be writable.
+		metadata:  The metadata manipulator for the file.
 	"""
+
+	# ──────────
+	# Constructor
 
 	def __init__(self, file_path, rw = False):
 		self.__rw             = rw
 		self.file_path        = os.path.abspath(file_path)
-		self.libxmp_file      = None
+		self.side_xmp_file_path = ""
+		self._libxmp_file     = None
 		self._libxmp_metadata = None
 		self.metadata         = None
+		self._is_textual      = False
 
 	# ──────────
 	# Properties
@@ -115,37 +125,109 @@ class XMPFile(object):
 
 	@property
 	def rw(self):
-	    return self.__rw
+		return self.__rw
 
 	@property
 	def is_open(self):
-	    return self.libxmp_file      is not None \
-	       and self._libxmp_metadata is not None \
-	       and self.metadata         is not None
+		return self.metadata is not None
 
 	@property
 	def has_changed(self):
-	    return repr(self._libxmp_metadata) != self.__original_repr
+		return repr(self._libxmp_metadata) != self.__original_repr
 
 	@property
 	def read_only(self):
-	    return not self.rw
+		return not self.rw
+
+	@property
+	def is_side_car(self):
+		return self.side_xmp_file_path != ""
 
 	# ───────────
 	# General API
 
 	def open(self):
+		"""
+		Opens the file.
+
+		Depending on the situation and the parameters, several things can happen.
+
+		+--------------+----------------------------+----------+------+---------+-------------------------+
+		|                         PARAMETERS                          |              RESULTS              |
+		+--------------+----------------------------+----------+------+---------+-------------------------+
+		| File exist ? | File is:                   | Sidecar  | Mode | Sidecar | Special consequences    |
+		|              |  - supported by libxmp ?   | exists ? |      | used ?  |                         |
+		|              |  - a ".xmp" file ?         |          |      |         |                         |
+		|              |  - another type of file ?  |          |      |         |                         |
+		+==============+============================+==========+======+=========+=========================+
+		|      No      |           libxmp           | Impossible, libxmp doesn't support unexisting files |
+		+--------------+----------------------------+----------+------+---------+-------------------------+
+		|      No      |            .xmp            |    ?     |   r  | raise IOError                     |
+		+--------------+----------------------------+----------+------+---------+-------------------------+
+		|      No      |            .xmp            |    ?     |   w  |   No    | file is created         |
+		+--------------+----------------------------+----------+------+---------+-------------------------+
+		|      No      |           other            |    ?     |   ?  | raise IOError                     |
+		+--------------+----------------------------+----------+------+---------+-------------------------+
+		|      Yes     |           libxmp           |    ?     |   ?  |   No    |                         |
+		+--------------+----------------------------+----------+------+---------+-------------------------+
+		|      Yes     |            .xmp            |    ?     |   ?  |   No    |                         |
+		+--------------+----------------------------+----------+------+---------+-------------------------+
+		|      Yes     |           other            |    No    |   r  |   Yes   | "read" empty metadata   |
+		+--------------+----------------------------+----------+------+---------+-------------------------+
+		|      Yes     |           other            |    No    |   w  |   Yes   | sidecar file is created |
+		+--------------+----------------------------+----------+------+---------+-------------------------+
+		|      Yes     |           other            |    Yes   |   ?  |   Yes   |                         |
+		+--------------+----------------------------+----------+------+---------+-------------------------+
+		"""
 		if self.is_open:
 			warnings.warn("File {} is already open".format(self.file_path), RuntimeWarning)
-		if libxmp.exempi.files_check_file_format(self.file_path) == libxmp.consts.XMP_FT_UNKNOWN:
-			extension = os.path.splitext(self.file_path)[1]
-			if extension != ".xmp":
-				raise RuntimeError("XMP library can't determine the file type")
 
-		self.libxmp_file = libxmp.XMPFiles(file_path = self.file_path,
-		                                open_onlyxmp = True,
-		                              open_forupdate = self.rw)
-		self.libxmp_metadata = self.libxmp_file.get_xmp()
+		if not os.path.exists(self.file_path):
+			if self.rw and os.path.splitext(self.file_path)[1] == ".xmp":
+				## Create file and empty metadata
+				xmp_metadata = libxmp.XMPMeta()
+				with open(self.file_path, 'w') as file_handle:
+					file_handle.write(
+					    xmp_metadata.serialize_to_str().encode("utf-8")
+					)
+				self._is_textual = True
+			else:
+				raise IOError("No such file or directory: '{}'".format(self.file_path))
+				## In the future, we might want to change this to allow the creation of
+				## other files.
+
+		elif libxmp.exempi.files_check_file_format(self.file_path) == libxmp.consts.XMP_FT_UNKNOWN:
+			self._is_textual = True
+			if os.path.splitext(self.file_path)[1] == ".xmp":
+				## Read file and load metadata
+				xmp_metadata = libxmp.XMPMeta()
+				with open(self.file_path, 'r') as file_handle:
+					file_contents = file_handle.read()
+					xmp_metadata.parse_from_str(file_contents)
+			else:
+				## Simply add the .xmp extension to the file name.
+				## This will avoid collision if someone tries to anotate several
+				## files with same name but different extensions
+				self.side_xmp_file_path = self.file_path+".xmp"
+				xmp_metadata = libxmp.XMPMeta()
+				if os.path.exists(self.side_xmp_file_path):
+					with open(self.side_xmp_file_path, 'r') as file_handle:
+						file_contents = file_handle.read()
+						xmp_metadata.parse_from_str(file_contents)
+				else:
+					xmp_metadata = libxmp.XMPMeta()
+					with open(self.side_xmp_file_path, 'w') as file_handle:
+						file_handle.write(
+						    xmp_metadata.serialize_to_str().encode("utf-8")
+						)
+
+		else:
+			self._libxmp_file = libxmp.XMPFiles(file_path = self.file_path,
+			                                open_onlyxmp = True,
+			                              open_forupdate = self.rw)
+			xmp_metadata = self._libxmp_file.get_xmp()
+
+		self.libxmp_metadata = xmp_metadata
 
 	def close(self):
 		if not self.is_open:
@@ -158,15 +240,26 @@ class XMPFile(object):
 
 			if self.rw:
 				try:
-					if self.libxmp_file.can_put_xmp(self.libxmp_metadata):
-						self.libxmp_file.put_xmp(self.libxmp_metadata)
+					if self.is_side_car:
+						with open(self.side_xmp_file_path, 'w') as file_handle:
+							file_handle.write(
+							    self.libxmp_metadata.serialize_to_str().encode("utf-8")
+							)
+					elif self._is_textual:
+						with open(self.file_path, 'w') as file_handle:
+							file_handle.write(
+							    self.libxmp_metadata.serialize_to_str().encode("utf-8")
+							)
+					elif self._libxmp_file.can_put_xmp(self.libxmp_metadata):
+						self._libxmp_file.put_xmp(self.libxmp_metadata)
 					else:
 						raise
 				except:
 					raise RuntimeError("Can't serialize XMP to file " + self.file_path)
 
 		finally:
-			self.libxmp_file.close_file()
+			if not self._is_textual:
+				self._libxmp_file.close_file()
 			self._reset()
 
 	# ───────────────
@@ -183,7 +276,7 @@ class XMPFile(object):
 	# Helpers
 
 	def _reset(self):
-		self.libxmp_file      = None
+		self._libxmp_file     = None
 		self._libxmp_metadata = None
 		self.metadata         = None
 		self.__original_repr  = None
@@ -357,8 +450,10 @@ class TreePredicatesMixin:
 		elif TreePredicatesMixin.INDEX_REGEX.match(relative_address):
 			return self.address + relative_address
 		else:
-			return "{base_address}/{relative_address}".format(base_address = self.address,
-			                                              relative_address = relative_address)
+			return "{base_address}/{relative_address}".format(
+				base_address = self.address,
+				relative_address = relative_address
+			)
 
 	# ──────────
 	# Predicates
@@ -367,9 +462,9 @@ class TreePredicatesMixin:
 		return self.namespace_uid == other.namespace_uid
 
 	def isDescendantOf(self, other):
-		return self.address.startswith(other.address) \
-		   and self.inSameNamespace(other) \
-		   and self.address != other.address
+		return (self.address.startswith(other.address)
+		    and self.inSameNamespace(other)
+		    and self.address != other.address)
 
 	def isAncestorOf(self, other):
 		return other.isDescendantOf(self)
@@ -416,9 +511,9 @@ class TreePredicatesMixin:
 	# Equality operators
 
 	def __eq__(self, other):
-		return isinstance(other, self.__class__) \
-		   and self.namespace == other.namespace \
-		   and self.address   == other.address
+		return (isinstance(other, self.__class__)
+		    and self.namespace == other.namespace
+		    and self.address   == other.address)
 
 	def __neq__(self, other):
 		return not self.__eq__(other)
@@ -458,27 +553,27 @@ class LibXMPElement(object, TreePredicatesMixin):
 
 	@property
 	def is_container(self):
-	    return self.descriptor["VALUE_IS_STRUCT"] or self.descriptor["VALUE_IS_ARRAY"]
+		return self.descriptor["VALUE_IS_STRUCT"] or self.descriptor["VALUE_IS_ARRAY"]
 
 	@property
 	def is_value(self):
-	    return not self.is_container
+		return not self.is_container
 
 	@property
 	def is_namespace(self):
-	    return self.descriptor["IS_SCHEMA"]
+		return self.descriptor["IS_SCHEMA"]
 
 	@property
 	def is_struct(self):
-	    return self.descriptor["VALUE_IS_STRUCT"]
+		return self.descriptor["VALUE_IS_STRUCT"]
 
 	@property
 	def is_array(self):
-	    return self.descriptor["VALUE_IS_ARRAY"] and self.descriptor["ARRAY_IS_ORDERED"]
+		return self.descriptor["VALUE_IS_ARRAY"] and self.descriptor["ARRAY_IS_ORDERED"]
 
 	@property
 	def is_set(self):
-	    return self.descriptor["VALUE_IS_ARRAY"] and not self.descriptor["ARRAY_IS_ORDERED"]
+		return self.descriptor["VALUE_IS_ARRAY"] and not self.descriptor["ARRAY_IS_ORDERED"]
 
 	# ──────────────
 	# Textualization
